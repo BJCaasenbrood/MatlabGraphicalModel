@@ -33,7 +33,6 @@ classdef Gmodel < handle
         NNode;
         NElem;
         Texture;
-        TextureStretch;
         Shading;
         Emission;
         Occlusion;
@@ -53,6 +52,7 @@ classdef Gmodel < handle
         FigHandle;
         FigAxis;
         TextureMap;
+        TextureStretch;
         Colormap;
         LineStyle;
         LineColor;
@@ -94,8 +94,8 @@ methods
 %---------------------------------------------------------------- Fem Class
 function obj = Gmodel(varargin) 
     
-    obj.Texture        = matcap_bluebase;
-    obj.TextureStretch = 0.75;
+    obj.Texture        = matcap_bluesphere;
+    obj.TextureStretch = .75;
     obj.Quality        = 32;
     
     obj.FlipNormals = false;
@@ -156,12 +156,13 @@ function Gmodel = set(Gmodel,varargin)
     end
 end
 %--------------------------------------------------------------------- copy
-function obj = copy(obj0,varargin)
+function obj = copy(Gmodel,varargin)
     if nargin > 2
-       obj = Blender(obj0,varargin{:});
+       obj = Blender(Gmodel,varargin{:});
     else
-       obj = Gmodel(obj0.Node,obj0.Element);
+       obj = Gmodel;
     end
+    
 end
 %-------------------------------- store current nodes as base configuration
 function Gmodel = fix(Gmodel)
@@ -174,7 +175,7 @@ function Gmodel = ground(Gmodel,gnd)
 end
 %------------------------------------------------------------- return Bdbox
 function Gmodel = box(Gmodel)
-    boundingBox(Gmodel);
+    BoundingBox(Gmodel);
 end
 %------------------------------------ renders the graphics: MatCap, AO, SSS
 function Gmodel = render(Gmodel,varargin)
@@ -189,11 +190,10 @@ function Gmodel = render(Gmodel,varargin)
         Gmodel.LineStyle,'edgecolor',Gmodel.LineColor,'FaceVertexCData',...
         Gmodel.TextureMap,'FaceColor','flat','FaceAlpha',Gmodel.Alpha);
     
+    %set(gcf,'color',gitpage); 
     material dull;
-    axis equal; axis(Gmodel.BdBox); axis off; 
-    
-    % please MATLAB, get rid of that ugly grey background...
-    background(); 
+    axis equal; axis(Gmodel.BdBox); 
+    axis off; 
     %view(30,15);
     daspect([1,1,1]);
     
@@ -201,72 +201,21 @@ function Gmodel = render(Gmodel,varargin)
     ax.Clipping = 'off';    
    
     Gmodel.FigHandle = hp;
-    Gmodel.FigAxis   = ax;
-    Gmodel.Figure    = H;
+    Gmodel.FigAxis = ax;
+    Gmodel.Figure = H;
     
-    h.ActionPostCallback   = @myprecallback;
+    h.ActionPostCallback  = @myprecallback;
     Gmodel.Figure.UserData = Gmodel;
     
     update(Gmodel);
+    %drawnow;
     
     function myprecallback(src,evnt)
         warning off;
         class = whoclasses('Gmodel');
-        if ~isa(class{1},'double')
         for i = 1:length(class)
-            try
-                r = update(class{i},'tex');
-            end
+        	r = update(class{i},'tex');
         end
-        end
-        class = whoclasses('Sdf');
-        if ~isa(class{1},'double')
-        for i = 1:length(class)
-            if ~isempty(class{i}.Gmodel)
-                try
-                    r = update(class{i}.Gmodel,'tex');
-                end
-            end
-        end
-        end
-        class = whoclasses('Rig');
-        if ~isa(class{1},'double')
-        for i = 1:length(class)
-            if ~isempty(class{i})
-                try
-                    r = class{i}.update();
-                end
-            end
-        end
-        end
-        class = whoclasses('Shapes');
-        if ~isa(class{1},'double')
-        for i = 1:length(class)
-            obj = class{i}.get('Gmodel');
-            if ~isempty(obj)
-                try
-                    r = obj.update();
-                end
-            end
-        end
-        end
-        class = whoclasses('cell');
-        if ~isa(class{1},'double')
-        for i = 1:length(class)
-            cll = class{i};
-            for j = 1:length(cll)
-                try
-                    if isa(cll{j},'Gmodel')
-                        r = update(cll{j},'tex');
-                    end
-                    if isa(cll{j},'Rig')
-                        r = cll{j}.update();
-                    end
-                end
-            end
-        end
-        end
-        
         warning on;
     end
 
@@ -289,7 +238,7 @@ function vargout = update(Gmodel,varargin)
     
     if nargout < 1 || strcmp(varargin ,'tex')
     set(Gmodel.FigHandle,'FaceVertexCData',Gmodel.TextureMap,...
-        'Facecolor',shading,'FaceAlpha',Gmodel.Alpha);
+        'Facecolor',shading);
     
     vargout = [];
     else
@@ -302,36 +251,12 @@ function vargout = update(Gmodel,varargin)
 end
 %---------------------------------------- return mesh to base configuration
 function Gmodel = reset(Gmodel)
-    
-    v = Gmodel.Node0;
-    f = Gmodel.Element0;
-    
-    [vn,fn] = trianglenormal(v,f);
-    
-    Gmodel.Node = v;
-    Gmodel.Node0 = v;
-    Gmodel.Element = f;
-    Gmodel.Element0 = f;
-    Gmodel.VNormal = -vn;
-    Gmodel.Normal = fn;  
-    Gmodel.RMatrix = eye(4);
-    Gmodel.BdBox = boxhull(Gmodel.Node); 
-    
-    Gmodel.Node    = Gmodel.Node0;
+    Gmodel.Node = Gmodel.Node0;
     Gmodel.Element = Gmodel.Element0;
-    Gmodel.NNode   = size(Gmodel.Node,1);
-    Gmodel.NElem   = size(Gmodel.Element,1);
-    
 end
 %---------------------------------- seeks middle and pull to origin (0,0,0)
 function Gmodel = center(Gmodel)
     Gmodel.BdBox = boxhull(Gmodel.Node); 
-end
-%---------------------------------- seeks middle and pull to origin (0,0,0)
-function Gmodel = translate(Gmodel,x)
-    Gmodel = reset(Gmodel);
-    Gmodel = Blender(Gmodel,'Translate',x); 
-    Gmodel = updateNode(Gmodel);
 end
 %---------------------------------------------- update nodes (not graphics)
 function Gmodel = updateNode(Gmodel,varargin)
@@ -383,14 +308,14 @@ function [Gmodel,N] = updateTexture(Gmodel)
         CC = ((Gmodel.AOTextureMap).^p);
         
         for ii = 1:M
-            N(ii,:) = ColorMultiply(N(ii,:),repmat(CC(ii)+(1-CC(ii)),1,3));
+            N(ii,:) = colormultiply(N(ii,:),repmat(CC(ii)+(1-CC(ii)),1,3));
             N(ii,:) = AffineColorMix(N(ii,:),E,...
                 [0,0,0],[(CC(ii)),1-CC(ii),0]);
         end
     end
     
     if strcmp(Gmodel.Shading,'face')
-       N =  TextureSmoothing(Gmodel.Element,N,5);
+       N =  texturesmoothing(Gmodel.Element,N,5);
     end
     
     Gmodel.TextureMap = N;
@@ -401,11 +326,11 @@ function showMap(Gmodel,Request)
     
     if ~isfloat(Request)
     switch(Request)
-    case('AO');  P = TextureSmoothing(Gmodel.Element,1./Gmodel.AOTextureMap-1,10);
-    case('SSS'); P = TextureSmoothing(Gmodel.Element,Gmodel.SSSTextureMap,10);
+    case('AO');  P = texturesmoothing(Gmodel.Element,1./Gmodel.AOTextureMap-1,10);
+    case('SSS'); P = texturesmoothing(Gmodel.Element,Gmodel.SSSTextureMap,10);
     end
     else
-        P = TextureSmoothing(Gmodel.Element,Request,4);
+        P = texturesmoothing(Gmodel.Element,Request,4);
     end
     
     set(Gmodel.FigHandle,'FaceVertexCData',P,'facecolor','interp');
@@ -443,19 +368,23 @@ if nargin < 2
 end
 
 fv = struct;
-f = fliplr(Gmodel.Element);
+f = Gmodel.Element;
 v = Gmodel.Node;
 
+[v, ~, indexn] =  unique(v, 'rows');
+f = indexn(f);
+
 if strcmp(type,'stl')
-    fv.vertices = v;
-    fv.faces    = f;
-    stlwriter(char(filename),fv);
+fv.vertices = v;
+fv.faces = f;
+stlwriter(char(filename),fv);
 elseif strcmp(type,'obj')
-    fv.vertices = v;
-    fv.faces    = f;
-    fv.objects(1).type ='f';
-    fv.objects(1).data.vertices = fv.faces;
-    objwriter(fv,'test.obj');
+fv.vertices = v;
+fv.faces = f;
+fv.objects(1).type='f';
+fv.objects(1).data.vertices=fv.faces;
+objwriter(fv,'test.obj');
+
 end
 
 
@@ -521,13 +450,8 @@ function Gmodel = GenerateObject(Gmodel,varargin)
        [~,Gmodel.Name,ext] = fileparts(msh{1});
        if strcmp(ext,'.stl'), [f,v] = stlreader(msh{1});
        elseif strcmp(ext,'.obj'), [v,f] = objreader(msh{1});
-       else, cout('err','* extension not recognized');
+       else, error('Extension not recognized.');
        end
-       
-    if Gmodel.ShowProcess   
-        %fprintf('* Loaded mesh = ');
-        %fprintf('hyper', [msh{1}, '\n']);   
-    end
        
     elseif isa(msh{1},'function_handle') || isa(msh{1},'Sdf')
 
@@ -536,7 +460,7 @@ function Gmodel = GenerateObject(Gmodel,varargin)
            Gmodel.BdBox = msh{1}.BdBox;  
        else
            if length(msh{2}) ~= 6
-               cout('err','* specify a correct bounding box of size 6 x 1');
+               error('Specify a correct bounding box of size [6x1].');
            end
 
            Gmodel.SDF   = msh{1};
@@ -548,7 +472,7 @@ function Gmodel = GenerateObject(Gmodel,varargin)
        D = Gmodel.SDF(single(P));
        D = reshape(D(:,end),size(X));
        
-       [f,v] = MarchingCubesFast(single(X),single(Y),...
+       [f,v,~] = MarchingCubes(single(X),single(Y),...
           single(Z),single(D),1e-6);
 
     elseif isa(msh{1},'double') && isa(msh{2},'double')
@@ -565,24 +489,12 @@ function Gmodel = GenerateObject(Gmodel,varargin)
        v = msh{1}.Node;
        f = msh{1}.Element;
     elseif  isa(msh{1},'Mmesh')
-       %h = figure("Visible",false);
+       myGhostFigure = figure("Visible",false);
        [x,y,z] = tubeplot(msh{1}.Node.',msh{1}.get('WireThickness'));
        h = mesh(x,y,z);
        fv = surf2patch(h);
        v = fv.vertices;
        f = fv.faces;
-    elseif  isa(msh{1},'Shapes')
-        %h = figure("Visible",false);
-        [x,y,z] = rtubeplot(msh{1}.Node.',...
-            msh{1}.TubeRadiusA,...
-            msh{1}.TubeRadiusB,...
-            msh{1}.TubeRadiusAlpha,...
-            16,1e-6,...
-            msh{1}.TubeRamp);
-        %h = mesh(x,y,z);
-        fv = surf2patch(x,y,z,'triangles');
-        v = fv.vertices;
-        f = fv.faces;
     end
     
     [vn,fn] = trianglenormal(v,f);
@@ -597,9 +509,9 @@ function Gmodel = GenerateObject(Gmodel,varargin)
     Gmodel.BdBox = boxhull(Gmodel.Node); 
     
     if Gmodel.ShowProcess
-        %fprintf(['* Vertices  = ', num2str(length(v)/1e3,4), 'k \n']);
-        %pause(0.01);
-        %fprintf(['* Polycount = ', num2str(length(f)/1e3,4), 'k \n']);
+        fprintf(['* Vertices  = ', num2str(length(v)/1e3,4), 'k \n']);
+        pause(0.01);
+        fprintf(['* Polycount = ', num2str(length(f)/1e3,4), 'k \n']);
     end
     
     fcell = num2cell(Gmodel.Element,2);
@@ -607,15 +519,10 @@ function Gmodel = GenerateObject(Gmodel,varargin)
   
     Gmodel.TextureMap = normal2rgb(Gmodel.Normal);
     
-    Nf = size(Gmodel.Element,1);
-    C = zeros(Nf,3);
-    
-    for ii = 1:Nf
-        el = Gmodel.Element(ii,:);
-        C(ii,:) = mean(Gmodel.Node(el,:),1);
-    end
-    
-    Gmodel.Center = C;
+    f = num2cell(Gmodel.Element,2);
+    VCell = cellfun(@(E) Gmodel.Node(E,:),f,'UniformOutput',false);
+    c = cellfun(@(V) mean(V,1),VCell,'UniformOutput',false);
+    Gmodel.Center = vertcat(c{:});
 end
 %------------------------------------------------------------ bake cubemaps
 function Gmodel = BakeCubemap(Gmodel,Cubemap)
@@ -652,7 +559,7 @@ function Gmodel = BakeCubemap(Gmodel,Cubemap)
     UV = spheremapping(Normals,alpha);
        
     EnviromentReflect = zeros(N,3);
-    rgbImage = rot90((Cubemap));
+    rgbImage = ((Cubemap));
       
     R = rgbImage(:,:,1);
     G = rgbImage(:,:,2);
@@ -678,7 +585,7 @@ end
 function Gmodel = BakeAmbientOcclusion(Gmodel)
 Bias = Gmodel.AOBias;
 Res = round(2.^Gmodel.AOBit);
-BB = boundingBox(Gmodel.Node); 
+BB = boxhull(Gmodel.Node); 
 if Gmodel.AORenderComplete == false
 R = Gmodel.AORadius*mean([abs(BB(2)-BB(1)),abs(BB(4)-BB(3)),...
     abs(BB(6)-BB(5))]);
@@ -689,8 +596,16 @@ end
 
 Gmodel.BdBox = BB;
 
+% if strcmp(Gmodel.Shading,'Face')
+% Centers = zeros(length(Gmodel.Element),3);
+% for el = 1:length(Gmodel.Element)
+%     Centers(el,:) = mean(Gmodel.Node(Gmodel.Element(el,:),:),1);
+% end
+% Normals = Gmodel.Normal;
+% else
 Normals = Gmodel.VNormal;
 Centers = Gmodel.Node;
+% end
 
 AOmap = zeros(length(Centers),1);
         
@@ -701,8 +616,8 @@ pts = zeros(npts,3);
 idx = 0;
 
 for ii = 1:length(Centers)
-    T = generateHemiSphereBase(Res,Bias); 
-    Rot = planarProjection(dir*Normals(ii,:));
+    T = hemisphere(Res,Bias); 
+    Rot = planeprojection(dir*Normals(ii,:));
     pts(1+idx:Res+idx,:) = R*((Rot*T.').') + Centers(ii,:);
     idx = idx + Res;
 end
@@ -726,16 +641,13 @@ idx = 0;
 
 for ii = 1:length(Centers)
     flag = PolyFlag(1+idx:Res+idx);
-    if Gmodel.AOInvert, AOmap(ii) = 1 - sum(flag)/Res;
-    else, AOmap(ii) = sum(flag)/Res;
-    end
-    
+    AOmap(ii) = 1 - sum(flag)/Res;   
     idx = idx + Res;
 end
 
 f = fv.faces;
 if ~strcmp(Gmodel.Shading,'Face')
-%AOmap = TextureSmoothing(f,AOmap,5);
+AOmap = texturesmoothing(f,AOmap,5);
 end
 
 if Gmodel.AORenderComplete == false
@@ -785,7 +697,7 @@ f = [1,2,3,4];
 dX = (tmp(2)-tmp(1));
 dY = (tmp(4)-tmp(3));
 
-if dY/dX >= 2, I = vertcat(I,I);
+if dY/dX >= 2, I = vertzcat(I,I);
 elseif dX/dY >= 2, I = horzcat(I,I);
 end
 
@@ -798,6 +710,31 @@ patch('Faces',f,'Vertices',v,...
     'EdgeColor',[1 1 1]*0.5);
 end
 %---------------------------------------------------- generate bounding box
+function BoundingBox(Gmodel)
+
+tmp = boxhull(Gmodel.Node);
+
+v = [tmp(1),tmp(3), tmp(5);  
+     tmp(2),tmp(3), tmp(5);
+     tmp(2),tmp(4), tmp(5);
+     tmp(1),tmp(4), tmp(5);
+     tmp(1),tmp(3), tmp(6);  
+     tmp(2),tmp(3), tmp(6);
+     tmp(2),tmp(4), tmp(6);
+     tmp(1),tmp(4), tmp(6)];
+ 
+f = [1,2,3,4;
+     5,6,7,8;
+     1,5,nan,nan;
+     2,6,nan,nan;
+     3,7,nan,nan;
+     4,8,nan,nan];
+
+patch('Faces',f,'Vertices',v,...
+    'Linewidth',1.5,'linestyle','-','FaceColor','none',...
+    'EdgeColor',col(2));
+
+end
     
 end
 end
