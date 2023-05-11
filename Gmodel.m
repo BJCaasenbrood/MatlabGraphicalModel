@@ -208,13 +208,43 @@ function Gmodel = render(Gmodel,varargin)
     Gmodel.Figure.UserData = Gmodel;
     
     update(Gmodel);
-    %drawnow;
     
     function myprecallback(src,evnt)
         warning off;
         class = whoclasses('Gmodel');
         for i = 1:length(class)
-        	r = update(class{i},'tex');
+            try
+        	    r = update(class{i},'tex');
+            end
+        end
+        class = whoclasses('Shapes');
+        if ~isa(class{1},'double')
+            for i = 1:length(class)
+                try
+                    obj = class{i}.get('Gmodel');
+                    r = update(obj,'tex');
+                end
+            end
+        end
+        class = whoclasses('cell');
+        if ~isa(class{1},'double')
+        for i = 1:length(class)
+            cll = class{i};
+            for j = 1:length(cll)
+                try
+                    if isa(cll{j},'Gmodel')
+                        r = update(cll{j},'tex');
+                    end
+                    if isa(cll{j},'Rig')
+                        r = cll{j}.update();
+                    end
+                    if isa(cll{j},'Shapes')
+                        obj = cll{j}.get('Gmodel');
+                        r = update(obj,'tex');
+                    end
+                end
+            end
+        end
         end
         warning on;
     end
