@@ -1,4 +1,4 @@
 function mcap = whitebase
-mcap = fliplr(imread('img/basesphere.png'));
+mcap = fliplr(imread('img/matcap_512x512_basesphere.jpg'));
 end
 

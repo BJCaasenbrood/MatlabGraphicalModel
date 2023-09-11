@@ -58,6 +58,7 @@ classdef Gmodel < handle
         LineColor;
         ShowProcess;
         
+        PhiView;
         Normal;
         VNormal;
         FlipNormals;
@@ -119,6 +120,7 @@ function obj = Gmodel(varargin)
     obj.SSSTextureMap = 1;
     obj.Shading = 'Vertex';
     obj.ShowProcess = true;
+    obj.PhiView = [];
     
     if length(varargin) > 1
     if isfloat(varargin{2})
@@ -538,11 +540,11 @@ function Gmodel = GenerateObject(Gmodel,varargin)
     Gmodel.RMatrix = eye(4);
     Gmodel.BdBox = boxhull(Gmodel.Node); 
     
-    if Gmodel.ShowProcess
-        fprintf(['* Vertices  = ', num2str(length(v)/1e3,4), 'k \n']);
-        pause(0.01);
-        fprintf(['* Polycount = ', num2str(length(f)/1e3,4), 'k \n']);
-    end
+    % if Gmodel.ShowProcess
+    %     fprintf(['* Vertices  = ', num2str(length(v)/1e3,4), 'k \n']);
+    %     pause(0.01);
+    %     fprintf(['* Polycount = ', num2str(length(f)/1e3,4), 'k \n']);
+    % end
     
     fcell = num2cell(Gmodel.Element,2);
     [~,Gmodel.V2F,Gmodel.F2V] = elementadjecency(fcell);
@@ -560,10 +562,10 @@ function Gmodel = BakeCubemap(Gmodel,Cubemap)
     Ny = size(Cubemap,1); 
     Nx = size(Cubemap,2);
     
-    if ishandle(101)
+    if isempty(Gmodel.PhiView)
         Phi = view;
     else
-        Phi = eye(4); 
+        Phi = Gmodel.PhiView; 
     end
     
     Phi = (Phi(1:3,1:3));
@@ -727,7 +729,7 @@ f = [1,2,3,4];
 dX = (tmp(2)-tmp(1));
 dY = (tmp(4)-tmp(3));
 
-if dY/dX >= 2, I = vertzcat(I,I);
+if dY/dX >= 2, I = vertcat(I,I);
 elseif dX/dY >= 2, I = horzcat(I,I);
 end
 
